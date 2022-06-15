@@ -44,5 +44,55 @@ merg <- select(polity, unique_id, polity, polity2, polity_democ, polity_autoc)
 
 main <- left_join(data, merg)
 
+#Vdem ----
 
+vdem <- read.csv("V-Dem-CY-Core-v10.csv")
+names(vdem)
+vdem$unique_id <- vdem$COWcode + (vdem$year/10000)
+
+vdem <- select(vdem, unique_id, v2x_polyarchy,
+               v2x_libdem, v2x_partipdem, v2x_egaldem)
+
+data <- left_join(main, vdem)
+
+#War ----
+library(peacesciencer)
+war <- create_stateyears()
+war$unique_id <- war$ccode + (war$year/10000)
+war <- add_gwcode_to_cow(war)
+
+war <- add_ucdp_acd(war, type = "interstate", only_wars = T)
+war$acd_inter_ongoing <- war$ucdpongoing
+war$acd_inter_onset <- war$ucdponset
+war$ucdpongoing <- NULL
+war$ucdponset <- NULL
+war$maxintensity <- NULL
+war$conflict_ids <- NULL
+
+war <- add_ucdp_acd(war, type = "intrastate", only_wars = T)
+war$acd_intra_ongoing <- war$ucdpongoing
+war$acd_intra_onset <- war$ucdponset
+war$ucdpongoing <- NULL
+war$ucdponset <- NULL
+war$maxintensity <- NULL
+war$conflict_ids <- NULL
+
+war <- add_ucdp_acd(war, type = c("intrastate", "interstate"),
+                    only_wars = T)
+war$acd_any_ongoing <- war$ucdpongoing
+war$acd_any_onset <- war$ucdponset
+war$ucdpongoing <- NULL
+war$ucdponset <- NULL
+war$maxintensity <- NULL
+war$conflict_ids <- NULL
+war$gwcode <- NULL
+war$statenme <- NULL
+war$ccode <- NULL
+war$year <- NULL
+
+names(war)
+
+main <- left_join(data, war)
+
+# Write Data ----
 write.csv(main, "Warning-Shots-Data.csv")
