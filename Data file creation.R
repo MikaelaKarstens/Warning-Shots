@@ -105,5 +105,7 @@ merg <- select(dem, unique_id, wbgdp2011est, wbgdppc2011est,
                wbpopest, sdpest)
 main <- left_join(data, merg)
 
+data <- read.csv("Warning-Shots-Data.csv")
+
 # Write Data ----
 write.csv(main, "Warning-Shots-Data.csv")
