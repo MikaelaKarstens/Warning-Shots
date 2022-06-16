@@ -9,6 +9,7 @@ library(pscl)
 library(broom)
 library(ggplot2)
 library(survey)
+library(plm)
 
 # Settings =====================================================================
 
@@ -16,7 +17,7 @@ options(scipen = 50) # bias against scientific notation for convenience
 
 # Loading data =================================================================
 
-data <- read.csv("Warning-Shots-Data.csv")
+data <- read.csv("WS-Data.csv")
 names(data)
 
 # Subset datasets ==============================================================
@@ -28,6 +29,8 @@ tc23 <- filter(data, event_num == 2 | event_num == 3)
 tc45 <- filter(data, event_num == 4 | event_num == 5)
 
 tc4_more <- filter(data, event_num >= 4)
+
+tc5_more <- filter(data, event_num >= 5)
 
 tc6_more <- filter(data, event_num >= 6)
 
@@ -80,14 +83,182 @@ tc4_more_elapse <- Surv(tc4_more$alt_start, tc4_more$alt_stop,
                         tc4_more$new_tc_dummy)
 tc4_more_gap <- Surv(tc4_more$start, tc4_more$stop, tc4_more$new_tc_dummy)
 
+tc5_more_elapse <- Surv(tc5_more$alt_start, tc5_more$alt_stop,
+                        tc5_more$new_tc_dummy)
+tc5_more_gap <- Surv(tc5_more$start, tc5_more$stop, tc5_more$new_tc_dummy)
+
 tc6_more_elapse <- Surv(tc6_more$alt_start, tc6_more$alt_stop,
                         tc6_more$new_tc_dummy)
 tc6_more_gap <- Surv(tc6_more$start, tc6_more$stop, tc6_more$new_tc_dummy)
 
-# Simple Cox Model
+# Simple Cox Model =============================================================
 
-basic <- coxph(tc1_gap ~ hrp_mean + polity2 + hs_capacity +
-                  area_1000_log + lmtnest + elf +
+basic <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                 acd_intra_ongoing + 
                   cluster(ccode), data = tc1, method = "efron")
 
 summary(basic)
+
+stargazer(basic)
+
+basic <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                 area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                 acd_intra_ongoing + 
+                 cluster(ccode), data = tc1, method = "efron")
+
+summary(basic)
+
+stargazer(basic)
+
+tc_pwp <- coxph(all_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                  acd_intra_ongoing + strata(event_num) +
+                  cluster(ccode), data = data, method = "efron")
+
+summary(tc_pwp)
+stargazer(tc_pwp)
+
+tc_pwp <- coxph(all_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                  acd_intra_ongoing + strata(event_num) +
+                  cluster(ccode), data = data, method = "efron")
+
+tc1_pwp <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                   area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                   acd_intra_ongoing + strata(event_num) +
+                   cluster(ccode), data = tc1, method = "efron")
+
+
+tc23_pwp <- coxph(tc23_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                    area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                    acd_intra_ongoing + strata(event_num) +
+                    cluster(ccode), data = tc23, method = "efron")
+
+
+
+
+tc4_more_pwp <- coxph(tc4_more_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+                   area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                   acd_intra_ongoing + strata(event_num) +
+                   cluster(ccode), data = tc4_more, method = "efron")
+
+
+
+
+stargazer(tc_pwp, tc1_pwp, tc23_pwp, tc4_more_pwp,
+          type = "latex",
+          title = "PWP Gap Time Model Results",
+          model.numbers = F,
+          column.labels = c("All TCs",
+                            "First TC",
+                            " TC 2 or 3",
+                            "TC 4+"),
+          dep.var.labels = c("(1)", "(2)", "(3)", "(4)"),
+          covariate.labels = c("Human Rights Protection",
+                               "Democracy (V-Dem)",
+                               "State Capacity (HS)",
+                               "State Area (logged)",
+                               "Mountains",
+                               "ELF",
+                               "Interstate War",
+                               "Intrastate War",
+                               "ELF",
+                               "TC Tally"),
+          keep.stat = c("n"))
+
+# hrp_mean - human rights protections scores 
+# polity2 - polity
+# v2x_polyarchy - vdem democracy
+# v2x_libdem - vdem liberal democracy
+# v2x_partipdem - vdem participatory democ
+# v2x_egaldem - vdem egalitarian democ
+# acd_inter_ongoing - acd ongoing interstate war
+# acd_intra_ongoing - acd ongoing intrastate war
+# hs_capacity - hansen and sigman capacity
+# elf - ethnic linguistic fractionalization
+# wbpopest - population
+
+# Interrupted TS ===============================================================
+
+new_dat <- data %>%
+  group_by(ccode) %>%
+  dplyr::mutate(lag_hrp = lag(hrp_mean, n = 1))
+
+new_dat <- data %>%
+  group_by(ccode) %>%
+  dplyr::mutate(lag_num_tc = lag(num_tc, n = 1))
+
+names(new_dat)
+
+write.csv(new_dat, "WS-Data.csv")
+data <- new_dat
+
+sub_dat <- filter(data,
+                  ccode != 90,  # Guatemala
+                  ccode != 100, # Colombia
+                  ccode != 372, # Georgia
+                  ccode != 432, # Mali
+                  ccode != 451, # Sierra Leone
+                  ccode != 475, # Nigeria
+                  ccode != 483, # Chad
+                  ccode != 490, # DRC
+                  ccode != 500, # Uganda
+                  ccode != 501, # Kenya
+                  ccode != 520, # Somalia
+                  ccode != 530, # Ethiopia
+                  ccode != 560, # S. Africa
+                  ccode != 565, # Namibia
+                  ccode != 645, # Iraq
+                  ccode != 660, # Lebanon
+                  ccode != 750, # India
+                  ccode != 770, # Pakistan
+                  ccode != 775, # Burma
+                  ccode != 811, # Cambodia
+                  ccode != 817, # S. Vietnam
+                  ccode != 840) # Philippines
+
+main <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+main.sub <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+
+summary(main)
+summary(main.sub)
+
+stargazer(
+  main,
+  main.sub,
+  title = "Model Results with Two-Way Fixed Effects",
+  model.numbers = F,
+  column.labels = c("All States", "Subset"),
+  dep.var.labels = c("Human Rights Protection"),
+  covariate.labels = c(
+    "Number of TCs",
+    "Democracy (V-Dem)",
+    "Capacity",
+    "Area (logged)",
+    "Civil War",
+    "Interstate War",
+    "Human Rights Protection (t-1)"
+  ),
+  keep.stat = c("n")
+)
+
+
