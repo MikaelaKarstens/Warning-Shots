@@ -94,5 +94,16 @@ names(war)
 
 main <- left_join(data, war)
 
+# Pop estimates and gdp from Anders, Fariss, and Markowitz 2020----
+
+dem <- create_stateyears()
+dem$unique_id <- dem$ccode + (dem$year/10000)
+dem <- add_gwcode_to_cow(dem)
+dem <- add_sdp_gdp(dem)
+names(dem)
+merg <- select(dem, unique_id, wbgdp2011est, wbgdppc2011est,
+               wbpopest, sdpest)
+main <- left_join(data, merg)
+
 # Write Data ----
 write.csv(main, "Warning-Shots-Data.csv")

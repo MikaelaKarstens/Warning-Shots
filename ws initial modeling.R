@@ -1,7 +1,5 @@
 # Replication Code for "Warning Shots" by Mikaela Karstens
 
-data <- read.csv("Warning-Shots-Data.csv")
-
 # Required packages for replication - Please install if needed =================
 
 library(dplyr)
