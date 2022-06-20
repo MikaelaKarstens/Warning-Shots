@@ -10,6 +10,7 @@ library(broom)
 library(ggplot2)
 library(survey)
 library(plm)
+library(matrixStats)
 
 # Settings =====================================================================
 
@@ -181,18 +182,6 @@ stargazer(tc_pwp, tc1_pwp, tc23_pwp, tc4_more_pwp,
 
 # Interrupted TS ===============================================================
 
-new_dat <- data %>%
-  group_by(ccode) %>%
-  dplyr::mutate(lag_hrp = lag(hrp_mean, n = 1))
-
-new_dat <- data %>%
-  group_by(ccode) %>%
-  dplyr::mutate(lag_num_tc = lag(num_tc, n = 1))
-
-names(new_dat)
-
-write.csv(new_dat, "WS-Data.csv")
-data <- new_dat
 
 sub_dat <- filter(data,
                   ccode != 90,  # Guatemala
@@ -227,6 +216,83 @@ main <- plm(
   effect = "twoways",
   data = data
 )
+
+main1 <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+main2 <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+main3 <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+main4 <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+main5 <- plm(
+  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data
+)
+
+coefs <- as.data.frame(cbind(main1$coefficients, main2$coefficients, main3$coefficients,
+               main4$coefficients, main5$coefficients))
+
+coefs$average <- (coefs$V1 + coefs$V2 + coefs$V3 + coefs$V4 + coefs$V5)/5
+
+ses <- as.data.frame(cbind(summary(main1)$coefficients[,2],
+                           summary(main2)$coefficients[,2],
+                           summary(main3)$coefficients[,2],
+                           summary(main4)$coefficients[,2],
+                           summary(main5)$coefficients[,2]))
+
+ses$average_sqse <- ((ses$V1)^2 + (ses$V2)^2 + (ses$V3)^2 + (ses$V4)^2 +
+                     (ses$V5)^2)/5
+
+ses <- ses %>% mutate(coef_var = rowVars(as.matrix(coefs[,c(1,2,3,4,5)])))
+
+ses$se <- sqrt(ses$average_sqse + 1.2*ses$coef_var)
+
+results_m1 <- as.data.frame(cbind(coefs$average, ses$se))
+colnames(results_m1) <- c("Coef", "SE") 
+rownames(results_m1) <- c("num_tc", "vdem", "hs_capacity", "area_1000_log",
+                          "acd_intra_ongoing", "acd_inter_ongoing", "lag_hrp")
+results_m1$Z <- results_m1$Coef/results_m1$SE
+results_m1$pvalue <- exp()
+
+P = exp(−0.717×z − 0.416×z2).
 
 main.sub <- plm(
   hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
