@@ -92,54 +92,106 @@ tc6_more_elapse <- Surv(tc6_more$alt_start, tc6_more$alt_stop,
                         tc6_more$new_tc_dummy)
 tc6_more_gap <- Surv(tc6_more$start, tc6_more$stop, tc6_more$new_tc_dummy)
 
-# Simple Cox Model =============================================================
+# Modeling First Territorial Contender =========================================
 
-basic <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
-                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
-                 acd_intra_ongoing + 
-                  cluster(ccode), data = tc1, method = "efron")
-
-summary(basic)
-
-stargazer(basic)
-
-basic <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+first <- coxph(tc1_gap ~ hrp_mean + polity2 + hs_capacity +
                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
                  acd_intra_ongoing + 
                  cluster(ccode), data = tc1, method = "efron")
 
-summary(basic)
+summary(first)
 
-stargazer(basic)
+stargazer(first,
+          type = "latex",
+          title = "Cox Model of First TC Emergence",
+          model.numbers = F,
+          dep.var.labels = "First TC",
+          covariate.labels = c("Human Rights Protection",
+                               "Polity2",
+                               "State Capacity",
+                               "Area (logged)",
+                               "Mountainous",
+                               "ELF",
+                               "Ongoing Interstate War",
+                               "Ongoing Intrastate War"),
+          keep.stat = c("n"))
 
-tc_pwp <- coxph(all_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+# Figure 1 - Coef Plot for First TC ============================================
+
+coefs <- tidy(first, conf.int = TRUE, exponentiate = F)
+coefs$hazard_ratio <- exp(coefs$estimate)
+coefs$variable <- c("Human Rights Protection",
+                    "Polity2",
+                    "State Capacity",
+                    "Area (logged)",
+                    "Mountainous",
+                    "ELF",
+                    "Ongoing Interstate War",
+                    "Ongoing Intrastate War")
+
+
+tc1_pwp <- data.frame(variable = coefs$variable,
+                       hazard_ratio = coefs$hazard_ratio,
+                       beta = coefs$estimate,
+                       se = summary(first)$coef[, 4],
+                       tc = "First TC")
+tc1_pwp$variable <- factor(tc1_pwp$variable,
+                            levels = unique(as.character(tc1_pwp$variable)))
+
+
+interval1 <- -qnorm((1 - 0.90) / 2)  # 90 % multiplier
+interval2 <- -qnorm((1 - 0.95) / 2)  # 95 % multiplier
+
+
+first_fig <- ggplot(tc1_pwp)
+first_fig <- first_fig + geom_hline(yintercept = 0, colour = gray(1 / 2), lty = 2)
+first_fig <- first_fig + geom_linerange(aes(x = variable,
+                                        ymin = beta - se * interval1,
+                                        ymax = beta + se * interval1),
+                                    lwd = 1.5,
+                                    position = position_dodge(width = 1 / 2))
+first_fig <- first_fig + geom_pointrange(aes(x = variable, y = beta,
+                                         ymin = beta - se * interval2,
+                                         ymax = beta + se * interval2,
+                                         size = 2),
+                                     lwd = 1, shape = 18,
+                                     position = position_dodge(width = 1 / 2))
+
+first_fig <- first_fig + xlim(rev(levels(tc1_pwp$variable))) +
+  coord_flip() + theme_minimal()
+first_fig <- first_fig + labs(y = "Coefficient Estimate")
+first_fig <- first_fig + theme(
+  axis.title.y = element_blank(),
+  axis.title.x = element_text(family = "serif", size = 14),
+  axis.text.y = element_text(family = "serif", size = 14),
+  legend.position = c(.9, .3),
+  legend.title = element_text(family = "serif", size = 16),
+  legend.text = element_text(family = "serif", size = 14)
+)
+
+print(first_fig)
+
+# Modeling all TCs =============================================================
+
+
+tc_pwp <- coxph(all_gap ~ hrp_mean + polity2 + hs_capacity +
                   area_1000_log + lmtnest + elf + acd_inter_ongoing +
                   acd_intra_ongoing + strata(event_num) +
                   cluster(ccode), data = data, method = "efron")
 
-summary(tc_pwp)
-stargazer(tc_pwp)
-
-tc_pwp <- coxph(all_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
-                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
-                  acd_intra_ongoing + strata(event_num) +
-                  cluster(ccode), data = data, method = "efron")
-
-tc1_pwp <- coxph(tc1_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+tc1_pwp <- coxph(tc1_gap ~ hrp_mean + polity2 + hs_capacity +
                    area_1000_log + lmtnest + elf + acd_inter_ongoing +
                    acd_intra_ongoing + strata(event_num) +
                    cluster(ccode), data = tc1, method = "efron")
 
 
-tc23_pwp <- coxph(tc23_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+tc23_pwp <- coxph(tc23_gap ~ hrp_mean + polity2 + hs_capacity +
                     area_1000_log + lmtnest + elf + acd_inter_ongoing +
                     acd_intra_ongoing + strata(event_num) +
                     cluster(ccode), data = tc23, method = "efron")
 
 
-
-
-tc4_more_pwp <- coxph(tc4_more_gap ~ hrp_mean + v2x_polyarchy + hs_capacity +
+tc4_more_pwp <- coxph(tc4_more_gap ~ hrp_mean + polity2 + hs_capacity +
                    area_1000_log + lmtnest + elf + acd_inter_ongoing +
                    acd_intra_ongoing + strata(event_num) +
                    cluster(ccode), data = tc4_more, method = "efron")
@@ -157,15 +209,13 @@ stargazer(tc_pwp, tc1_pwp, tc23_pwp, tc4_more_pwp,
                             "TC 4+"),
           dep.var.labels = c("(1)", "(2)", "(3)", "(4)"),
           covariate.labels = c("Human Rights Protection",
-                               "Democracy (V-Dem)",
-                               "State Capacity (HS)",
-                               "State Area (logged)",
-                               "Mountains",
+                               "Polity2",
+                               "State Capacity",
+                               "Area (logged)",
+                               "Mountainous",
                                "ELF",
-                               "Interstate War",
-                               "Intrastate War",
-                               "ELF",
-                               "TC Tally"),
+                               "Ongoing Interstate War",
+                               "Ongoing Intrastate War"),
           keep.stat = c("n"))
 
 # hrp_mean - human rights protections scores 
@@ -179,6 +229,126 @@ stargazer(tc_pwp, tc1_pwp, tc23_pwp, tc4_more_pwp,
 # hs_capacity - hansen and sigman capacity
 # elf - ethnic linguistic fractionalization
 # wbpopest - population
+
+# Figure 2 - Coef Plot of All TCs ==============================================
+
+
+coefs_all <- tidy(tc_pwp, conf.int = TRUE, exponentiate = F)
+coefs_all$hazard_ratio <- exp(coefs_all$estimate)
+coefs_all$variable <- c("Human Rights Protection",
+                        "Polity2",
+                        "State Capacity",
+                        "Area (logged)",
+                        "Mountainous",
+                        "ELF",
+                        "Ongoing Interstate War",
+                        "Ongoing Intrastate War")
+
+coefs1 <- tidy(tc1_pwp, conf.int = TRUE, exponentiate = F)
+coefs1$hazard_ratio <- exp(coefs1$estimate)
+coefs1$variable <- c("Human Rights Protection",
+                     "Polity2",
+                     "State Capacity",
+                     "Area (logged)",
+                     "Mountainous",
+                     "ELF",
+                     "Ongoing Interstate War",
+                     "Ongoing Intrastate War")
+
+coefs23 <- tidy(tc23_pwp, conf.int = TRUE, exponentiate = F)
+coefs23$hazard_ratio <- exp(coefs23$estimate)
+coefs23$variable <- c("Human Rights Protection",
+                      "Polity2",
+                      "State Capacity",
+                      "Area (logged)",
+                      "Mountainous",
+                      "ELF",
+                      "Ongoing Interstate War",
+                      "Ongoing Intrastate War")
+
+coefs4more <- tidy(tc4_more_pwp, conf.int = TRUE, exponentiate = F)
+coefs4more$hazard_ratio <- exp(coefs4more$estimate)
+coefs4more$variable <- c("Human Rights Protection",
+                      "Polity2",
+                      "State Capacity",
+                      "Area (logged)",
+                      "Mountainous",
+                      "ELF",
+                      "Ongoing Interstate War",
+                      "Ongoing Intrastate War")
+
+
+combined <- data.frame(variable = coefs_all$variable,
+                       hazard_ratio = coefs_all$hazard_ratio,
+                       beta = coefs_all$estimate,
+                       se = summary(tc_pwp)$coef[, 4],
+                       tc = "All TCs")
+combined$variable <- factor(combined$variable,
+                            levels = unique(as.character(combined$variable)))
+
+first <- data.frame(variable = coefs1$variable,
+                    hazard_ratio = coefs1$hazard_ratio,
+                    beta = coefs1$estimate,
+                    se = summary(tc1_pwp)$coef[, 4],
+                    tc = "First TC")
+
+mod23 <- data.frame(variable = coefs23$variable,
+                    hazard_ratio = coefs23$hazard_ratio,
+                    beta = coefs23$estimate,
+                    se = summary(tc23_pwp)$coef[, 4],
+                    tc = "2-3")
+
+mod4plus <- data.frame(variable = coefs4more$variable,
+                    hazard_ratio = coefs4more$hazard_ratio,
+                    beta = coefs4more$estimate,
+                    se = summary(tc4_more_pwp)$coef[, 4],
+                    tc = "4+")
+
+
+
+allmod <- data.frame(rbind(combined, first, mod23, mod4plus))
+
+allmod$variable <- factor(allmod$variable,
+                          levels = unique(as.character(allmod$variable)))
+
+
+interval1 <- -qnorm((1 - 0.90) / 2)  # 90 % multiplier
+interval2 <- -qnorm((1 - 0.95) / 2)  # 95 % multiplier
+
+allmod$tc <- factor(allmod$tc,
+                    levels = c("4+", "2-3", "First TC", "All TCs"))
+
+pwp_fig <- ggplot(allmod, aes(colour = tc))
+pwp_fig <- pwp_fig + scale_color_viridis_d(option = "D",
+                                           breaks = c("All TCs", "First TC",
+                                                      "2-3", "4+"),
+                                           name = "TC Number")
+pwp_fig <- pwp_fig + geom_hline(yintercept = 0, colour = gray(1 / 2), lty = 2)
+pwp_fig <- pwp_fig + geom_linerange(aes(x = variable,
+                                        ymin = beta - se * interval1,
+                                        ymax = beta + se * interval1),
+                                    lwd = 1.5,
+                                    position = position_dodge(width = 1 / 2))
+pwp_fig <- pwp_fig + geom_pointrange(aes(x = variable, y = beta,
+                                         ymin = beta - se * interval2,
+                                         ymax = beta + se * interval2,
+                                         size = 2),
+                                     lwd = 1, shape = 18,
+                                     position = position_dodge(width = 1 / 2))
+
+pwp_fig <- pwp_fig + xlim(rev(levels(allmod$variable))) +
+  coord_flip() + theme_minimal()
+pwp_fig <- pwp_fig + labs(y = "Coefficient Estimate")
+pwp_fig <- pwp_fig + theme(
+  axis.title.y = element_blank(),
+  axis.title.x = element_text(family = "serif", size = 14),
+  axis.text.y = element_text(family = "serif", size = 14),
+  legend.position = c(.8, .5),
+  legend.title = element_text(family = "serif", size = 16),
+  legend.text = element_text(family = "serif", size = 14)
+)
+
+print(pwp_fig)
 
 # Interrupted TS ===============================================================
 
