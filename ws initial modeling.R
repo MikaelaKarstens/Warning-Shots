@@ -116,6 +116,8 @@ stargazer(first,
                                "Ongoing Intrastate War"),
           keep.stat = c("n"))
 
+Haz <- exp(first$coefficients)
+
 # Figure 1 - Coef Plot for First TC ============================================
 
 coefs <- tidy(first, conf.int = TRUE, exponentiate = F)
@@ -229,6 +231,11 @@ stargazer(tc_pwp, tc1_pwp, tc23_pwp, tc4_more_pwp,
 # hs_capacity - hansen and sigman capacity
 # elf - ethnic linguistic fractionalization
 # wbpopest - population
+
+Hazall <- exp(tc_pwp$coefficients)
+Haz1 <- exp(tc1_pwp$coefficients)
+Haz23 <- exp(tc23_pwp$coefficients)
+Haz4plus <- exp(tc4_more_pwp$coefficients)
 
 # Figure 2 - Coef Plot of All TCs ==============================================
 
@@ -350,6 +357,97 @@ pwp_fig <- pwp_fig + theme(
 
 print(pwp_fig)
 
+# TC Survival ==================================================================
+
+tcdat <- read.csv("TC_Years_warning_shots.csv")
+merg <- select(data, unique_id, hrp_mean, lag_hrp, lag_hrp1, lag_hrp2, lag_hrp3,
+               lag_hrp4, lag_hrp5, state_name, lmtnest, elf, acd_inter_ongoing,
+               acd_intra_ongoing, area_1000_log, hs_capacity, Devel, polity2)
+
+
+tcdat <- left_join(tcdat, merg)
+
+tc_surv <- Surv(tcdat$start, tcdat$stop, tcdat$Death)
+
+tc_survive <- coxph(tc_surv ~ hrp_mean + polity2 + hs_capacity +
+                 area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                 acd_intra_ongoing + 
+                 cluster(ccode), data = tcdat, method = "efron")
+
+summary(tc_survive)
+
+stargazer(tc_survive,
+          type = "latex",
+          title = "Cox Model of TC Survival",
+          model.numbers = F,
+          dep.var.labels = "First TC",
+          covariate.labels = c("Human Rights Protection",
+                               "Polity2",
+                               "State Capacity",
+                               "Area (logged)",
+                               "Mountainous",
+                               "ELF",
+                               "Ongoing Interstate War",
+                               "Ongoing Intrastate War"),
+          keep.stat = c("n"))
+
+Haz <- exp(tc_survive$coefficients)
+
+# Coef plot of TC Survival =====================================================
+
+coefs <- tidy(tc_survive, conf.int = TRUE, exponentiate = F)
+coefs$hazard_ratio <- exp(coefs$estimate)
+coefs$variable <- c("Human Rights Protection",
+                    "Polity2",
+                    "State Capacity",
+                    "Area (logged)",
+                    "Mountainous",
+                    "ELF",
+                    "Ongoing Interstate War",
+                    "Ongoing Intrastate War")
+
+
+tcsurv_cox <- data.frame(variable = coefs$variable,
+                      hazard_ratio = coefs$hazard_ratio,
+                      beta = coefs$estimate,
+                      se = summary(tc_survive)$coef[, 4])
+
+tcsurv_cox$variable <- factor(tcsurv_cox$variable,
+                           levels = unique(as.character(tcsurv_cox$variable)))
+
+
+interval1 <- -qnorm((1 - 0.90) / 2)  # 90 % multiplier
+interval2 <- -qnorm((1 - 0.95) / 2)  # 95 % multiplier
+
+
+tc_surv_fig <- ggplot(tcsurv_cox)
+tc_surv_fig <- tc_surv_fig + geom_hline(yintercept = 0, colour = gray(1 / 2), lty = 2)
+tc_surv_fig <- tc_surv_fig + geom_linerange(aes(x = variable,
+                                            ymin = beta - se * interval1,
+                                            ymax = beta + se * interval1),
+                                        lwd = 1.5,
+                                        position = position_dodge(width = 1 / 2))
+tc_surv_fig <- tc_surv_fig + geom_pointrange(aes(x = variable, y = beta,
+                                             ymin = beta - se * interval2,
+                                             ymax = beta + se * interval2,
+                                             size = 2),
+                                         lwd = 1, shape = 18,
+                                         position = position_dodge(width = 1 / 2))
+
+tc_surv_fig <- tc_surv_fig + xlim(rev(levels(tcsurv_cox$variable))) +
+  coord_flip() + theme_minimal()
+tc_surv_fig <- tc_surv_fig + labs(y = "Coefficient Estimate")
+tc_surv_fig <- tc_surv_fig + theme(
+  axis.title.y = element_blank(),
+  axis.title.x = element_text(family = "serif", size = 14),
+  axis.text.y = element_text(family = "serif", size = 14),
+  legend.position = c(.9, .3),
+  legend.title = element_text(family = "serif", size = 16),
+  legend.text = element_text(family = "serif", size = 14)
+)
+
+print(tc_surv_fig)
+
 # Interrupted TS ===============================================================
 
 
@@ -462,7 +560,7 @@ rownames(results_m1) <- c("num_tc", "vdem", "hs_capacity", "area_1000_log",
 results_m1$Z <- results_m1$Coef/results_m1$SE
 results_m1$pvalue <- exp()
 
-P = exp(−0.717×z − 0.416×z2).
+P = exp(−0.717*z - 0.416*z2).
 
 main.sub <- plm(
   hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
