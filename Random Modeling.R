@@ -6,6 +6,8 @@ names(data)
 cor(data$v2x_polyarchy, data$polity2, use = "complete.obs")
 # Correlate at 0.827
 
+cor(data$hs_capacity, data$Devel, use = "complete.obs")
+
 # CIRI Tests ----
 
 ciri <- filter(data, !is.na(ciri_kill))

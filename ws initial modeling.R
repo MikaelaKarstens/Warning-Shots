@@ -11,6 +11,7 @@ library(ggplot2)
 library(survey)
 library(plm)
 library(matrixStats)
+library(Amelia)
 
 # Settings =====================================================================
 
@@ -362,7 +363,8 @@ print(pwp_fig)
 tcdat <- read.csv("TC_Years_warning_shots.csv")
 merg <- select(data, unique_id, hrp_mean, lag_hrp, lag_hrp1, lag_hrp2, lag_hrp3,
                lag_hrp4, lag_hrp5, state_name, lmtnest, elf, acd_inter_ongoing,
-               acd_intra_ongoing, area_1000_log, hs_capacity, Devel, polity2)
+               acd_intra_ongoing, area_1000_log, hs_capacity, Devel, polity2,
+               tc_tally)
 
 
 tcdat <- left_join(tcdat, merg)
@@ -370,9 +372,8 @@ tcdat <- left_join(tcdat, merg)
 tc_surv <- Surv(tcdat$start, tcdat$stop, tcdat$Death)
 
 tc_survive <- coxph(tc_surv ~ hrp_mean + polity2 + hs_capacity +
-                 area_1000_log + lmtnest + elf + acd_inter_ongoing +
-                 acd_intra_ongoing + 
-                 cluster(ccode), data = tcdat, method = "efron")
+                 area_1000_log + lmtnest + acd_inter_ongoing +
+                 acd_intra_ongoing + tc_tally , data = tcdat, method = "efron")
 
 summary(tc_survive)
 
@@ -380,18 +381,20 @@ stargazer(tc_survive,
           type = "latex",
           title = "Cox Model of TC Survival",
           model.numbers = F,
-          dep.var.labels = "First TC",
+          dep.var.labels = "TC Survival",
           covariate.labels = c("Human Rights Protection",
                                "Polity2",
                                "State Capacity",
                                "Area (logged)",
                                "Mountainous",
-                               "ELF",
                                "Ongoing Interstate War",
-                               "Ongoing Intrastate War"),
+                               "Ongoing Intrastate War",
+                               "TC Tally"),
           keep.stat = c("n"))
 
 Haz <- exp(tc_survive$coefficients)
+
+sd(data$hrp_mean, na.rm = T)
 
 # Coef plot of TC Survival =====================================================
 
@@ -402,9 +405,9 @@ coefs$variable <- c("Human Rights Protection",
                     "State Capacity",
                     "Area (logged)",
                     "Mountainous",
-                    "ELF",
                     "Ongoing Interstate War",
-                    "Ongoing Intrastate War")
+                    "Ongoing Intrastate War",
+                    "TC Tally")
 
 
 tcsurv_cox <- data.frame(variable = coefs$variable,
@@ -476,7 +479,7 @@ sub_dat <- filter(data,
                   ccode != 840) # Philippines
 
 main <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
   index = c("state_name", "year"),
@@ -486,7 +489,7 @@ main <- plm(
 )
 
 main1 <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
   index = c("state_name", "year"),
@@ -538,7 +541,8 @@ main5 <- plm(
 coefs <- as.data.frame(cbind(main1$coefficients, main2$coefficients, main3$coefficients,
                main4$coefficients, main5$coefficients))
 
-coefs$average <- (coefs$V1 + coefs$V2 + coefs$V3 + coefs$V4 + coefs$V5)/5
+
+
 
 ses <- as.data.frame(cbind(summary(main1)$coefficients[,2],
                            summary(main2)$coefficients[,2],
@@ -546,24 +550,19 @@ ses <- as.data.frame(cbind(summary(main1)$coefficients[,2],
                            summary(main4)$coefficients[,2],
                            summary(main5)$coefficients[,2]))
 
-ses$average_sqse <- ((ses$V1)^2 + (ses$V2)^2 + (ses$V3)^2 + (ses$V4)^2 +
-                     (ses$V5)^2)/5
+melded <- mi.meld(coefs, ses, byrow = FALSE)
 
-ses <- ses %>% mutate(coef_var = rowVars(as.matrix(coefs[,c(1,2,3,4,5)])))
+results_m1 <- as.data.frame(t(do.call(rbind.data.frame, melded)))
 
-ses$se <- sqrt(ses$average_sqse + 1.2*ses$coef_var)
 
-results_m1 <- as.data.frame(cbind(coefs$average, ses$se))
 colnames(results_m1) <- c("Coef", "SE") 
-rownames(results_m1) <- c("num_tc", "vdem", "hs_capacity", "area_1000_log",
-                          "acd_intra_ongoing", "acd_inter_ongoing", "lag_hrp")
 results_m1$Z <- results_m1$Coef/results_m1$SE
-results_m1$pvalue <- exp()
+results_m1$p <- 2*pnorm(-abs(results_m1$Z))
+  
 
-P = exp(−0.717*z - 0.416*z2).
 
 main.sub <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
   index = c("state_name", "year"),
@@ -572,27 +571,196 @@ main.sub <- plm(
   data = sub_dat
 )
 
-
-summary(main)
-summary(main.sub)
-
-stargazer(
-  main,
-  main.sub,
-  title = "Model Results with Two-Way Fixed Effects",
-  model.numbers = F,
-  column.labels = c("All States", "Subset"),
-  dep.var.labels = c("Human Rights Protection"),
-  covariate.labels = c(
-    "Number of TCs",
-    "Democracy (V-Dem)",
-    "Capacity",
-    "Area (logged)",
-    "Civil War",
-    "Interstate War",
-    "Human Rights Protection (t-1)"
-  ),
-  keep.stat = c("n")
+main.sub1 <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
 )
 
+main.sub2 <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub3 <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub4 <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub5 <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+
+coefs <- as.data.frame(cbind(main.sub1$coefficients, main.sub2$coefficients, main.sub3$coefficients,
+                             main.sub4$coefficients, main.sub5$coefficients))
+
+
+
+
+ses <- as.data.frame(cbind(summary(main.sub1)$coefficients[,2],
+                           summary(main.sub2)$coefficients[,2],
+                           summary(main.sub3)$coefficients[,2],
+                           summary(main.sub4)$coefficients[,2],
+                           summary(main.sub5)$coefficients[,2]))
+
+melded <- mi.meld(coefs, ses, byrow = FALSE)
+
+results_m1sub <- as.data.frame(t(do.call(rbind.data.frame, melded)))
+
+
+colnames(results_m1sub) <- c("Coef", "SE") 
+results_m1sub$Z <- results_m1sub$Coef/results_m1sub$SE
+results_m1sub$p <- 2*pnorm(-abs(results_m1sub$Z))
+
+# Coef plot of ITS =============================================================
+
+results_m1
+
+results_m1sub
+
+results_m1$variable <- c("Number of TCs",
+                         "Polity2",
+                         "Capacity",
+                         "Area",
+                         "Civil War",
+                         "Interstate War",
+                         "Human Rights Protection (t-1)")
+
+results_m1sub$variable <- c("Number of TCs",
+                       "Polity2",
+                       "Capacity",
+                       "Area",
+                       "Civil War",
+                       "Interstate War",
+                       "Human Rights Protection (t-1)")
+
+
+all_plot <- data.frame(variable = results_m1$variable,
+                       beta = results_m1$Coef,
+                       se = results_m1$SE,
+                       tc = "All Cases")
+
+all_plot$variable <- factor(all_plot$variable,
+                            levels = unique(as.character(all_plot$variable)))
+
+sub_plot <- data.frame(variable = results_m1sub$variable,
+                       beta = results_m1sub$Coef,
+                       se = results_m1sub$SE,
+                       tc = "Subset")
+
+
+allmod <- data.frame(rbind(all_plot, sub_plot))
+
+allmod$variable <- factor(allmod$variable,
+                          levels = unique(as.character(allmod$variable)))
+
+submod <- filter(allmod, variable != "Human Rights Protection (t-1)")
+
+submod$variable <- factor(submod$variable,
+                          levels = unique(as.character(submod$variable)))
+
+interval1 <- -qnorm((1 - 0.90) / 2)  # 90 % multiplier
+interval2 <- -qnorm((1 - 0.95) / 2)  # 95 % multiplier
+
+
+allmod$tc <- factor(allmod$tc,
+                    levels = c("All Cases", "Subset"))
+
+main_coef <- ggplot(allmod, aes(colour = tc))
+main_coef <- main_coef + scale_color_viridis_d(option = "D", begin = 0.2, end = .8,
+                                               breaks = c("All Cases", "Subset"),
+                                               name = "")
+main_coef <- main_coef + geom_hline(yintercept = 0, colour = gray(1 / 2), lty = 2)
+main_coef <- main_coef + geom_linerange(aes(x = variable,
+                                            ymin = beta - se * interval1,
+                                            ymax = beta + se * interval1),
+                                        lwd = 1.5,
+                                        position = position_dodge(width = 1 / 2))
+main_coef <- main_coef + geom_pointrange(aes(x = variable, y = beta,
+                                             ymin = beta - se * interval2,
+                                             ymax = beta + se * interval2,
+                                             size = 2),
+                                         lwd = 1, shape = 18,
+                                         position = position_dodge(width = 1 / 2))
+
+main_coef <- main_coef + xlim(rev(levels(allmod$variable))) +
+  coord_flip() + theme_minimal()
+main_coef <- main_coef + labs(y = "Coefficient Estimate")
+main_coef <- main_coef + theme(
+  axis.title.y = element_blank(),
+  axis.title.x = element_text(family = "serif", size = 14),
+  axis.text.y = element_text(family = "serif", size = 14),
+  legend.position = c(.8, .4),
+  legend.title = element_text(family = "serif", size = 16),
+  legend.text = element_text(family = "serif", size = 14)
+)
+
+print(main_coef)
+
+
+
+submod$tc <- factor(submod$tc,
+                    levels = c("All Cases", "Subset"))
+
+sub_coef <- ggplot(submod, aes(colour = tc))
+sub_coef <- sub_coef + scale_color_viridis_d(option = "D", begin = 0.2, end = .8,
+                                             breaks = c("All Cases", "Subset"),
+                                             name = "")
+sub_coef <- sub_coef + geom_hline(yintercept = 0, colour = gray(1 / 2), lty = 2)
+sub_coef <- sub_coef + geom_linerange(aes(x = variable,
+                                          ymin = beta - se * interval1,
+                                          ymax = beta + se * interval1),
+                                      lwd = 1.5,
+                                      position = position_dodge(width = 1 / 2))
+sub_coef <- sub_coef + geom_pointrange(aes(x = variable, y = beta,
+                                           ymin = beta - se * interval2,
+                                           ymax = beta + se * interval2,
+                                           size = 2),
+                                       lwd = 1, shape = 18,
+                                       position = position_dodge(width = 1 / 2))
+
+sub_coef <- sub_coef + xlim(rev(levels(submod$variable))) +
+  coord_flip() + theme_minimal()
+sub_coef <- sub_coef + labs(y = "Coefficient Estimate")
+sub_coef <- sub_coef + theme(
+  axis.title.y = element_blank(),
+  axis.title.x = element_text(family = "serif", size = 14),
+  axis.text.y = element_text(family = "serif", size = 14),
+  legend.position = c(.8, .3),
+  legend.title = element_text(family = "serif", size = 16),
+  legend.text = element_text(family = "serif", size = 14)
+)
+
+print(sub_coef)
 
