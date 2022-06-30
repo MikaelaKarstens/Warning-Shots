@@ -453,8 +453,14 @@ print(tc_surv_fig)
 
 # Interrupted TS ===============================================================
 
+data2 <- select(data, num_tc, polity2, hs_capacity, area_1000_log, 
+               acd_intra_ongoing, acd_inter_ongoing, lag_hrp, state_name, year, 
+               hrp_mean, lag_hrp1, lag_hrp2, lag_hrp3, lag_hrp4, lag_hrp5, ccode)
 
-sub_dat <- filter(data,
+data22 <- data2 %>% na.omit
+data2 <- data22
+
+sub_dat <- filter(data2,
                   ccode != 90,  # Guatemala
                   ccode != 100, # Colombia
                   ccode != 372, # Georgia
@@ -485,7 +491,7 @@ main <- plm(
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 main1 <- plm(
@@ -495,52 +501,51 @@ main1 <- plm(
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 main2 <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 main3 <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 main4 <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 main5 <- plm(
-  hrp_mean ~ num_tc + v2x_polyarchy + hs_capacity +
+  hrp_mean ~ num_tc + polity2 + hs_capacity +
     area_1000_log 
   + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
   index = c("state_name", "year"),
   model = "within",
   effect = "twoways",
-  data = data
+  data = data2
 )
 
 coefs <- as.data.frame(cbind(main1$coefficients, main2$coefficients, main3$coefficients,
                main4$coefficients, main5$coefficients))
-
 
 
 
@@ -559,6 +564,9 @@ colnames(results_m1) <- c("Coef", "SE")
 results_m1$Z <- results_m1$Coef/results_m1$SE
 results_m1$p <- 2*pnorm(-abs(results_m1$Z))
   
+mfx <- marginaleffects(main1)
+
+mfx <- Effect("num_tc", main1)
 
 
 main.sub <- plm(
