@@ -453,7 +453,7 @@ print(tc_surv_fig)
 
 # Interrupted TS ===============================================================
 
-data2 <- select(data, num_tc, polity2, hs_capacity, area_1000_log, 
+data2 <- select(data, num_tc, polity2, hs_capacity, area_1000_log, Devel, elf,
                acd_intra_ongoing, acd_inter_ongoing, lag_hrp, state_name, year, 
                hrp_mean, lag_hrp1, lag_hrp2, lag_hrp3, lag_hrp4, lag_hrp5, ccode)
 
@@ -771,4 +771,387 @@ sub_coef <- sub_coef + theme(
 )
 
 print(sub_coef)
+
+
+
+# Appendix C.2 - Alternative Variables =========================================
+  # Devel instead of hs in pwp ---------------------------------------------------
+
+
+tc_pwp2 <- coxph(all_gap ~ hrp_mean + polity2 + Devel +
+                  area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                  acd_intra_ongoing + strata(event_num) +
+                  cluster(ccode), data = data, method = "efron")
+
+tc1_pwp2 <- coxph(tc1_gap ~ hrp_mean + polity2 + Devel +
+                   area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                   acd_intra_ongoing + strata(event_num) +
+                   cluster(ccode), data = tc1, method = "efron")
+
+
+tc23_pwp2 <- coxph(tc23_gap ~ hrp_mean + polity2 + Devel +
+                    area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                    acd_intra_ongoing + strata(event_num) +
+                    cluster(ccode), data = tc23, method = "efron")
+
+
+tc4_more_pwp2 <- coxph(tc4_more_gap ~ hrp_mean + polity2 + Devel +
+                        area_1000_log + lmtnest + elf + acd_inter_ongoing +
+                        acd_intra_ongoing + strata(event_num) +
+                        cluster(ccode), data = tc4_more, method = "efron")
+
+
+
+
+stargazer(tc_pwp2, tc1_pwp2, tc23_pwp2, tc4_more_pwp2,
+          type = "latex",
+          title = "PWP Gap Time Model Results - Devel Instead of HS Capacity",
+          model.numbers = F,
+          column.labels = c("All TCs",
+                            "First TC",
+                            " TC 2 or 3",
+                            "TC 4+"),
+          dep.var.labels = c("(1)", "(2)", "(3)", "(4)"),
+          covariate.labels = c("Human Rights Protection",
+                               "Polity2",
+                               "State Capacity",
+                               "Area (logged)",
+                               "Mountainous",
+                               "ELF",
+                               "Ongoing Interstate War",
+                               "Ongoing Intrastate War"),
+          keep.stat = c("n"))
+
+# MITS with Devel --------------------------------------------------------------
+
+maindev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main1dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main2dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main3dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main4dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main5dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+coefsdev <- as.data.frame(cbind(main1dev$coefficients, main2dev$coefficients, main3dev$coefficients,
+                             main4dev$coefficients, main5dev$coefficients))
+
+
+
+sesdev <- as.data.frame(cbind(summary(main1dev)$coefficients[,2],
+                           summary(main2dev)$coefficients[,2],
+                           summary(main3dev)$coefficients[,2],
+                           summary(main4dev)$coefficients[,2],
+                           summary(main5dev)$coefficients[,2]))
+
+meldeddev <- mi.meld(coefsdev, sesdev, byrow = FALSE)
+
+results_m1dev <- as.data.frame(t(do.call(rbind.data.frame, meldeddev)))
+
+
+colnames(results_m1dev) <- c("Coef", "SE") 
+results_m1dev$Z <- results_m1dev$Coef/results_m1dev$SE
+results_m1dev$p <- 2*pnorm(-abs(results_m1dev$Z))
+
+
+main.subdev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub1dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub2dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub3dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub4dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub5dev <- plm(
+  hrp_mean ~ num_tc + polity2 + Devel +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+
+coefsdev <- as.data.frame(cbind(main.sub1dev$coefficients, main.sub2dev$coefficients, main.sub3dev$coefficients,
+                             main.sub4dev$coefficients, main.sub5dev$coefficients))
+
+
+
+
+sesdev <- as.data.frame(cbind(summary(main.sub1dev)$coefficients[,2],
+                           summary(main.sub2dev)$coefficients[,2],
+                           summary(main.sub3dev)$coefficients[,2],
+                           summary(main.sub4dev)$coefficients[,2],
+                           summary(main.sub5dev)$coefficients[,2]))
+
+meldeddev <- mi.meld(coefsdev, ses, byrow = FALSE)
+
+results_m1subdev <- as.data.frame(t(do.call(rbind.data.frame, meldeddev)))
+
+
+colnames(results_m1subdev) <- c("Coef", "SE") 
+results_m1subdev$Z <- results_m1subdev$Coef/results_m1subdev$SE
+results_m1subdev$p <- 2*pnorm(-abs(results_m1subdev$Z))
+
+
+
+# MITS with ELF ----------------------------------------------------------------
+
+mainelf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main1elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main2elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main3elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main4elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+main5elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log 
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = data2
+)
+
+coefself <- as.data.frame(cbind(main1elf$coefficients, main2elf$coefficients, main3elf$coefficients,
+                                main4elf$coefficients, main5elf$coefficients))
+
+
+
+seself <- as.data.frame(cbind(summary(main1elf)$coefficients[,2],
+                              summary(main2elf)$coefficients[,2],
+                              summary(main3elf)$coefficients[,2],
+                              summary(main4elf)$coefficients[,2],
+                              summary(main5elf)$coefficients[,2]))
+
+meldedelf <- mi.meld(coefself, seself, byrow = FALSE)
+
+results_m1elf <- as.data.frame(t(do.call(rbind.data.frame, meldedelf)))
+
+
+colnames(results_m1elf) <- c("Coef", "SE") 
+results_m1elf$Z <- results_m1elf$Coef/results_m1elf$SE
+results_m1elf$p <- 2*pnorm(-abs(results_m1elf$Z))
+
+
+main.subelf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub1elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp1,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub2elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp2,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub3elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp3,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub4elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp4,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+main.sub5elf <- plm(
+  hrp_mean ~ num_tc + polity2 + hs_capacity + elf +
+    area_1000_log
+  + acd_intra_ongoing + acd_inter_ongoing + lag_hrp5,
+  index = c("state_name", "year"),
+  model = "within",
+  effect = "twoways",
+  data = sub_dat
+)
+
+
+coefself <- as.data.frame(cbind(main.sub1$coefficients, main.sub2$coefficients, main.sub3$coefficients,
+                                main.sub4$coefficients, main.sub5$coefficients))
+
+
+
+
+seself <- as.data.frame(cbind(summary(main.sub1elf)$coefficients[,2],
+                              summary(main.sub2elf)$coefficients[,2],
+                              summary(main.sub3elf)$coefficients[,2],
+                              summary(main.sub4elf)$coefficients[,2],
+                              summary(main.sub5elf)$coefficients[,2]))
+
+meldedelf <- mi.meld(coefself, ses, byrow = FALSE)
+
+results_m1subelf <- as.data.frame(t(do.call(rbind.data.frame, meldedelf)))
+
+
+colnames(results_m1subelf) <- c("Coef", "SE") 
+results_m1subelf$Z <- results_m1subelf$Coef/results_m1subelf$SE
+results_m1subelf$p <- 2*pnorm(-abs(results_m1subelf$Z))
+
 
